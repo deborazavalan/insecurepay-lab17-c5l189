@@ -1,0 +1,5 @@
+Version auditada: antes
+Comprobante abierto: transaccion #7
+Elementos <img src="x"> inyectados en el DOM: 1
+RESULTADO: JavaScript ejecutado en el navegador de la victima.
+alert() -> AUDITORIA FORENSE: Brecha XSS confirmada. Sesion: {"token":"eyJhbGciOiJIUzI1NiJ9...[recortado]","username":"carlos_mora","nombreCompleto":"Carlos Mora Morales","rol":"CLIENTE","usuarioId":3}

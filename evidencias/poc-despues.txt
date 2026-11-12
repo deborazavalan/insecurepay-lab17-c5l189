@@ -1,0 +1,242 @@
+InsecurePay - Evidencias periciales
+Fecha UTC: 2026-11-12 20:23:41
+Version auditada: despues
+API: http://localhost:8080/api
+Token carlos_mora obtenido: eyJhbGciOiJIUzI1NiJ9.eyJ...
+
+################################################################
+# HALLAZGO-01 | SQL Injection en GET /api/transacciones/buscar
+################################################################
+
+>>> Busqueda legitima de carlos_mora con el termino 'Reembolso'
+$ curl -G http://localhost:8080/api/transacciones/buscar --data-urlencode "termino=Reembolso" -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 200
+{
+  "total": 1,
+  "registros": [
+    {
+      "id": 3,
+      "origen": "María Rojas Soto",
+      "destino": "Carlos Mora Morales",
+      "monto": 15000.00,
+      "conceptoHtml": "Reembolso almuerzo equipo de trabajo."
+    }
+  ]
+}
+
+>>> Payload booleano sin token: ' OR 1=1 --
+$ curl -G http://localhost:8080/api/transacciones/buscar --data-urlencode "termino=' OR 1=1 --" -H "Accept: application/json"
+HTTP 401
+{
+  "type": "https://insecurepay.ucr.ac.cr/problemas/no-autenticado",
+  "title": "No autenticado",
+  "status": 401,
+  "detail": "Cabecera de autorizacion invalida.",
+  "instance": "/api/transacciones/buscar",
+  "timestamp": "2026-11-12T20:23:42.726548939Z"
+}
+
+>>> Payload booleano con token de carlos_mora: ' OR '1'='1
+$ curl -G http://localhost:8080/api/transacciones/buscar --data-urlencode "termino=' OR '1'='1" -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 200
+{
+  "total": 0,
+  "registros": []
+}
+
+################################################################
+# HALLAZGO-02 | IDOR / BOLA en cuentas, saldos y transferencias
+################################################################
+
+>>> carlos_mora consulta su propia cuenta (ID 2)
+$ curl http://localhost:8080/api/cuentas/2 -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 200
+{
+  "id": 2,
+  "titular": "Carlos Mora Morales",
+  "numeroCuenta": "CR05015202001026458901",
+  "saldo": 250000.00,
+  "status": null,
+  "detail": null
+}
+
+>>> carlos_mora consulta la cuenta ID 3 (propiedad de maria_rojas)
+$ curl http://localhost:8080/api/cuentas/3 -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 403
+{
+  "type": "https://insecurepay.ucr.ac.cr/problemas/acceso-denegado",
+  "title": "Acceso denegado",
+  "status": 403,
+  "detail": "Acceso no autorizado a cuenta ajena.",
+  "instance": "/api/cuentas/3",
+  "timestamp": "2026-11-12T20:23:42.821473217Z"
+}
+
+>>> carlos_mora consulta el saldo de la cuenta ID 3
+$ curl http://localhost:8080/api/cuentas/3/saldo -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 403
+{
+  "type": "https://insecurepay.ucr.ac.cr/problemas/acceso-denegado",
+  "title": "Acceso denegado",
+  "status": 403,
+  "detail": "Acceso no autorizado a cuenta ajena.",
+  "instance": "/api/cuentas/3/saldo",
+  "timestamp": "2026-11-12T20:23:42.841382292Z"
+}
+
+>>> carlos_mora lista las cuentas del usuario ID 4 (maria_rojas)
+$ curl http://localhost:8080/api/cuentas/usuario/4 -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 403
+{
+  "type": "https://insecurepay.ucr.ac.cr/problemas/acceso-denegado",
+  "title": "Acceso denegado",
+  "status": 403,
+  "detail": "Acceso no autorizado a cuentas de otro cliente.",
+  "instance": "/api/cuentas/usuario/4",
+  "timestamp": "2026-11-12T20:23:42.860448755Z"
+}
+
+>>> Listado global de cuentas sin token
+$ curl http://localhost:8080/api/cuentas
+HTTP 401
+{
+  "type": "https://insecurepay.ucr.ac.cr/problemas/no-autenticado",
+  "title": "No autenticado",
+  "status": 401,
+  "detail": "Cabecera de autorizacion invalida.",
+  "instance": "/api/cuentas",
+  "timestamp": "2026-11-12T20:23:42.875875825Z"
+}
+
+>>> carlos_mora debita 100000 CRC desde la cuenta ID 3 de maria_rojas hacia su cuenta CR05015202001026458901
+$ curl -X POST http://localhost:8080/api/transacciones/transferir -H "Authorization: Bearer <TOKEN_CARLOS>" -H "Content-Type: application/json" -d '{"cuentaOrigenId":3,"numeroCuentaDestino":"CR05015202001026458901","monto":100000,"conceptoHtml":"Transferencia no autorizada"}'
+HTTP 403
+{
+  "type": "https://insecurepay.ucr.ac.cr/problemas/acceso-denegado",
+  "title": "Acceso denegado",
+  "status": 403,
+  "detail": "Fraude detectado: no puede debitar fondos de cuentas ajenas.",
+  "instance": "/api/transacciones/transferir",
+  "timestamp": "2026-11-12T20:23:42.909396806Z"
+}
+
+>>> maria_rojas verifica el saldo de su cuenta ID 3 (saldo inicial 4850000.00)
+HTTP 200
+{
+  "id": 3,
+  "numeroCuenta": "CR05015202001026458902",
+  "saldo": 4850000.00
+}
+
+################################################################
+# HALLAZGO-03 | Stored XSS en el concepto de transferencias
+################################################################
+
+>>> carlos_mora envia una transferencia con el vector XSS en el concepto
+$ curl -X POST http://localhost:8080/api/transacciones/transferir -H "Authorization: Bearer <TOKEN_CARLOS>" -H "Content-Type: application/json" -d '{"cuentaOrigenId":2,"numeroCuentaDestino":"CR05015202001026458902","monto":1000,"conceptoHtml":"Pago de Servicios <img src=\"x\" onerror=\"alert('AUDITORIA FORENSE: Brecha XSS confirmada. Sesion: ' + localStorage.getItem('insecure_pay_user'))\">"}'
+HTTP 201
+{
+  "id": 5,
+  "conceptoHtml": "Pago de Servicios &lt;img src=&quot;x&quot; onerror=&quot;alert(&#x27;AUDITORIA FORENSE: Brecha XSS confirmada. Sesion: &#x27; + localStorage.getItem(&#x27;insecure_pay_user&#x27;))&quot;&gt;",
+  "status": null,
+  "detail": null
+}
+
+>>> Lectura del comprobante persistido (transaccion 5) por la victima maria_rojas
+$ curl http://localhost:8080/api/transacciones/5 -H "Authorization: Bearer <TOKEN_MARIA>"
+HTTP 200
+{
+  "id": 5,
+  "conceptoHtml": "Pago de Servicios &lt;img src=&quot;x&quot; onerror=&quot;alert(&#x27;AUDITORIA FORENSE: Brecha XSS confirmada. Sesion: &#x27; + localStorage.getItem(&#x27;insecure_pay_user&#x27;))&quot;&gt;"
+}
+
+################################################################
+# HALLAZGO-04 | Contrasenas almacenadas en texto plano
+################################################################
+
+>>> Login con usuario inexistente (enumeracion de usuarios)
+$ curl -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d '{"username":"usuario_fantasma","password":"x"}'
+HTTP 401
+{
+  "type": "https://insecurepay.ucr.ac.cr/problemas/no-autenticado",
+  "title": "No autenticado",
+  "status": 401,
+  "detail": "Credenciales invalidas.",
+  "instance": "/api/auth/login",
+  "timestamp": "2026-11-12T20:23:43.348556679Z"
+}
+
+>>> Volcado de la tabla USUARIOS mediante UNION sobre la busqueda
+$ curl -G http://localhost:8080/api/transacciones/buscar --data-urlencode "termino=zzz' UNION ALL SELECT id, 2, 3, 0.00, username || ':' || password, TIMESTAMP '2026-01-01 00:00:00', rol FROM USUARIOS --" -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 400
+{
+  "type": "https://insecurepay.ucr.ac.cr/problemas/solicitud-invalida",
+  "title": "Solicitud invalida",
+  "status": 400,
+  "detail": "El termino de busqueda excede la longitud permitida.",
+  "instance": "/api/transacciones/buscar",
+  "timestamp": "2026-11-12T20:23:43.367597340Z"
+}
+
+################################################################
+# HALLAZGO-05 | Fuga de trazas tecnicas y configuracion insegura
+################################################################
+
+>>> Comilla simple aislada en la busqueda
+$ curl -G http://localhost:8080/api/transacciones/buscar --data-urlencode "termino='" -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 200
+[]
+
+>>> Identificador no numerico en /api/cuentas/{id}
+$ curl http://localhost:8080/api/cuentas/abc -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 400
+{
+  "type": "https://insecurepay.ucr.ac.cr/problemas/parametro-invalido",
+  "title": "Solicitud invalida",
+  "status": 400,
+  "detail": "Uno o mas parametros tienen un formato invalido.",
+  "instance": "/api/cuentas/abc",
+  "timestamp": "2026-11-12T20:23:43.405349800Z"
+}
+
+>>> Cuenta inexistente en /api/cuentas/{id}
+$ curl http://localhost:8080/api/cuentas/999 -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 404
+{
+  "type": "https://insecurepay.ucr.ac.cr/problemas/recurso-no-encontrado",
+  "title": "Recurso no encontrado",
+  "status": 404,
+  "detail": "Cuenta bancaria no existe",
+  "instance": "/api/cuentas/999",
+  "timestamp": "2026-11-12T20:23:43.424801948Z"
+}
+
+>>> Cuerpo JSON malformado en /api/transacciones/transferir
+$ curl -X POST http://localhost:8080/api/transacciones/transferir -H "Content-Type: application/json" -d '{ json roto' -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 400
+{
+  "type": "https://insecurepay.ucr.ac.cr/problemas/cuerpo-invalido",
+  "title": "Solicitud invalida",
+  "status": 400,
+  "detail": "El cuerpo de la solicitud no es valido.",
+  "instance": "/api/transacciones/transferir",
+  "timestamp": "2026-11-12T20:23:43.440142747Z"
+}
+
+>>> Exposicion de la consola H2
+$ curl -o /dev/null -w '%{http_code}' http://localhost:8080/h2-console/
+HTTP 404
+
+>>> Token JWT forjado para maria_rojas con la clave publicada en application.properties
+$ curl http://localhost:8080/api/cuentas/3 -H "Authorization: Bearer <TOKEN_FORJADO_maria_rojas>"
+HTTP 401
+{
+  "type": "https://insecurepay.ucr.ac.cr/problemas/no-autenticado",
+  "title": "No autenticado",
+  "status": 401,
+  "detail": "Token invalido o expirado.",
+  "instance": "/api/cuentas/3",
+  "timestamp": "2026-11-12T20:23:43.497057075Z"
+}
+
+Fin de la ejecucion pericial.

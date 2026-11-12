@@ -65,7 +65,7 @@ console.log(`Comprobante abierto: transaccion #${idMayor}`);
 console.log(`Elementos <img src="x"> inyectados en el DOM: ${imagenesInyectadas}`);
 if (alertas.length > 0) {
   console.log('RESULTADO: JavaScript ejecutado en el navegador de la victima.');
-  alertas.forEach(a => console.log(`alert() -> ${a}`));
+  alertas.forEach(a => console.log(`alert() -> ${a.replace(/("token":")([^"]{20})[^"]*/, '$1$2...[recortado]')}`));
 } else {
   console.log('RESULTADO: No se ejecuto JavaScript; el concepto se renderizo como texto plano.');
 }

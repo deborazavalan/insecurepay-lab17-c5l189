@@ -33,7 +33,7 @@ peticion() {
     codigo=$(curl -s -o "$RESP" -w '%{http_code}' "$@")
     printf 'HTTP %s\n' "$codigo"
     if jq -e . "$RESP" >/dev/null 2>&1; then
-        jq "$filtro" "$RESP"
+        jq "if type==\"object\" and has(\"title\") and has(\"status\") then . else ($filtro) end" "$RESP"
     else
         head -c 600 "$RESP"
         printf '\n'

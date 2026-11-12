@@ -8,7 +8,7 @@ import { LoginResponse } from '../models/usuario.model';
 })
 export class AuthService {
   private apiUrl = 'http://localhost:8080/api/auth';
-  
+
   public currentUser = signal<LoginResponse | null>(null);
 
   constructor(private http: HttpClient) {
@@ -35,6 +35,10 @@ export class AuthService {
   logout(): void {
     localStorage.removeItem('insecure_pay_user');
     this.currentUser.set(null);
+  }
+
+  obtenerToken(): string | null {
+    return this.currentUser()?.token ?? null;
   }
 
   isAuthenticated(): boolean {

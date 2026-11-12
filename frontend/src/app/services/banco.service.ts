@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Cuenta, Transaccion, TransferenciaRequest } from '../models/banco.model';
 
@@ -15,12 +15,11 @@ export class BancoService {
     return this.http.get<Cuenta[]>(`${this.apiUrl}/cuentas/usuario/${usuarioId}`);
   }
 
-  // [VULNERABILIDAD INTENCIONADA: IDOR en Consulta de Cuentas]
   obtenerCuentaPorId(id: number): Observable<Cuenta> {
     return this.http.get<Cuenta>(`${this.apiUrl}/cuentas/${id}`);
   }
 
-  listarTodasLasCuentas(): Observable<Cuenta[]> {
+  listarMisCuentas(): Observable<Cuenta[]> {
     return this.http.get<Cuenta[]>(`${this.apiUrl}/cuentas`);
   }
 
@@ -36,14 +35,12 @@ export class BancoService {
     return this.http.get<Transaccion[]>(`${this.apiUrl}/transacciones/cuenta/${cuentaId}`);
   }
 
-  // [VULNERABILIDAD INTENCIONADA: SQL Injection]
   buscarTransacciones(termino: string): Observable<Transaccion[]> {
-    return this.http.get<Transaccion[]>(`${this.apiUrl}/transacciones/buscar?termino=${encodeURIComponent(termino)}`);
+    const params = new HttpParams().set('termino', termino);
+    return this.http.get<Transaccion[]>(`${this.apiUrl}/transacciones/buscar`, { params });
   }
 
-  // [VULNERABILIDAD INTENCIONADA: IDOR en Origen de Fondos + Stored XSS]
   transferir(req: TransferenciaRequest): Observable<Transaccion> {
     return this.http.post<Transaccion>(`${this.apiUrl}/transacciones/transferir`, req);
   }
 }
-

@@ -1,5 +1,4 @@
 <div class="container">
-  <!-- Tarjeta de Bienvenida y Balance -->
   <div class="card" style="background: linear-gradient(135deg, #0f766e 0%, #115e59 100%); color: #ffffff;">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
       <div>
@@ -17,7 +16,6 @@
     </div>
   </div>
 
-  <!-- Mis Cuentas Autorizadas -->
   <div class="card">
     <div class="card-header">
       <div>
@@ -46,56 +44,4 @@
       </div>
     </div>
   </div>
-
-  <!-- PANEL DE AUDITORÍA FORENSE IDOR / BOLA -->
-  <div class="card" style="border-left: 4px solid var(--warning); background: #fffbeb;">
-    <div class="card-header" style="border-bottom-color: #fde68a;">
-      <div>
-        <h3 style="color: #92400e;">⚠️ Vector de Auditoría Forense: Broken Access Control (IDOR / BOLA)</h3>
-        <p style="font-size: 13px; color: #b45309;">
-          Pruebe consultar cuentas y balances ajenos alterando el parámetro <code>&#123;id&#125;</code> en el endpoint <code>GET /api/cuentas/&#123;id&#125;</code> sin verificación de pertenencia:
-        </p>
-      </div>
-    </div>
-
-    <div style="display: flex; gap: 10px; align-items: flex-end; max-width: 500px;">
-      <div class="form-group" style="flex: 1; margin-bottom: 0;">
-        <label for="cuentaId" style="color: #92400e;">ID de Cuenta Bancaria a Consultar</label>
-        <input type="number" id="cuentaId" [(ngModel)]="cuentaIdAInspeccionar" placeholder="Ej: 2">
-      </div>
-      <button type="button" class="btn btn-primary" (click)="inspeccionarCuentaPorId()">
-        Consultar por IDOR
-      </button>
-    </div>
-
-    <div *ngIf="auditErrorMsg" class="alert alert-danger" style="margin-top: 16px;">
-      {{ auditErrorMsg }}
-    </div>
-
-    <!-- Resultado de la Exfiltración IDOR -->
-    <div *ngIf="cuentaEspiada" style="margin-top: 16px; background: #ffffff; border: 1px solid #fde68a; border-radius: var(--radius); padding: 18px;">
-      <span class="badge badge-danger">EVIDENCIA FORENSE IDOR CAPTURADA</span>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;">
-        <div>
-          <span style="font-size: 12px; color: var(--text-muted);">Titular Registrado:</span>
-          <p style="font-size: 15px; font-weight: 700; color: #1e293b;">{{ cuentaEspiada.titular }}</p>
-        </div>
-        <div>
-          <span style="font-size: 12px; color: var(--text-muted);">Número de Cuenta (IBAN):</span>
-          <p class="code-font" style="font-size: 14px; font-weight: 600;">{{ cuentaEspiada.numeroCuenta }}</p>
-        </div>
-        <div>
-          <span style="font-size: 12px; color: var(--text-muted);">Saldo Bancario Exfiltrado:</span>
-          <p style="font-size: 22px; font-weight: 800; color: var(--danger);">
-            ₡ {{ cuentaEspiada.saldo | number:'1.2-2' }}
-          </p>
-        </div>
-        <div>
-          <span style="font-size: 12px; color: var(--text-muted);">Usuario Propietario (usuario_id):</span>
-          <p class="code-font" style="font-size: 14px;">#{{ cuentaEspiada.usuarioId }}</p>
-        </div>
-      </div>
-    </div>
-  </div>
 </div>
-

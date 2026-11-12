@@ -61,7 +61,6 @@ h1, h2, h3 {
   color: var(--text-main);
 }
 
-/* Botones */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -105,7 +104,6 @@ h1, h2, h3 {
   font-size: 13px;
 }
 
-/* Formularios */
 .form-group {
   margin-bottom: 16px;
 }
@@ -142,7 +140,6 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
 }
 
-/* Tablas */
 .table-responsive {
   overflow-x: auto;
 }
@@ -173,7 +170,6 @@ tr:hover td {
   background-color: #f1f5f9;
 }
 
-/* Insignias */
 .badge {
   display: inline-block;
   padding: 4px 10px;
@@ -202,7 +198,6 @@ tr:hover td {
   color: #0369a1;
 }
 
-/* Alertas */
 .alert {
   padding: 14px 18px;
   border-radius: var(--radius);

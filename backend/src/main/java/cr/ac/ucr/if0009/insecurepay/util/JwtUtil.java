@@ -1,56 +1,76 @@
 package cr.ac.ucr.if0009.insecurepay.util;
 
+import cr.ac.ucr.if0009.insecurepay.exception.NoAutenticadoException;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import javax.crypto.SecretKey;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 @Component
 public class JwtUtil {
 
-    // [VULNERABILIDAD INTENCIONADA: A02:2021 - Cryptographic Failures]
-    // Secreto estatico predecible y debil
-    @Value("${jwt.secret}")
-    private String secret;
+    public static final int LONGITUD_MINIMA_BYTES = 32;
+    private static final String EMISOR = "insecurepay";
 
-    @Value("${jwt.expiration-ms}")
-    private long expirationMs;
+    private final SecretKey signingKey;
+    private final long expirationMs;
 
-    private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    public JwtUtil(@Value("${jwt.secret:}") String secret,
+                   @Value("${jwt.expiration-ms:3600000}") long expirationMs) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(
+                    "Debe definir la variable de entorno INSECUREPAY_JWT_SECRET.");
+        }
+        byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length < LONGITUD_MINIMA_BYTES) {
+            throw new IllegalStateException(
+                    "INSECUREPAY_JWT_SECRET debe tener al menos 256 bits (32 bytes).");
+        }
+        this.signingKey = Keys.hmacShaKeyFor(bytes);
+        this.expirationMs = expirationMs;
     }
 
     public String generateToken(String username, String rol, Long usuarioId) {
+        Date ahora = new Date();
         return Jwts.builder()
+                .issuer(EMISOR)
                 .subject(username)
                 .claim("rol", rol)
                 .claim("usuarioId", usuarioId)
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + expirationMs))
-                .signWith(getSigningKey())
+                .issuedAt(ahora)
+                .expiration(new Date(ahora.getTime() + expirationMs))
+                .signWith(signingKey, Jwts.SIG.HS256)
                 .compact();
     }
 
     public Claims getClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        try {
+            return Jwts.parser()
+                    .verifyWith(signingKey)
+                    .requireIssuer(EMISOR)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new NoAutenticadoException("Token invalido o expirado.");
+        }
+    }
+
+    public String extraerUsername(String token) {
+        return getClaims(token).getSubject();
     }
 
     public boolean validateToken(String token) {
         try {
             getClaims(token);
             return true;
-        } catch (Exception e) {
+        } catch (NoAutenticadoException e) {
             return false;
         }
     }
 }
-

@@ -24,9 +24,9 @@ export interface Transaccion {
 }
 
 export interface TransferenciaRequest {
-  cuentaOrigenId: number;
+  cuentaOrigenId: number | null;
   numeroCuentaDestino: string;
-  monto: number;
+  monto: number | null;
   conceptoHtml: string;
 }
 

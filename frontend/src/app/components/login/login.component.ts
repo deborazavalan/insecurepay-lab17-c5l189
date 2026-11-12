@@ -33,14 +33,11 @@ export class LoginComponent {
       },
       error: (err) => {
         this.loading = false;
-        this.errorMsg = err.error?.message || 'Fallo de autenticacion. Verifique sus credenciales.';
+        this.password = '';
+        this.errorMsg = err.status === 401
+          ? 'Credenciales invalidas.'
+          : 'No fue posible iniciar sesion. Intente nuevamente.';
       }
     });
   }
-
-  fillUser(user: string, pass: string): void {
-    this.username = user;
-    this.password = pass;
-  }
 }
-

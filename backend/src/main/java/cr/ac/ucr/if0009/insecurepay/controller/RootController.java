@@ -17,11 +17,10 @@ public class RootController {
         resp.put("estado", "ONLINE");
         resp.put("version", "1.0.0");
         resp.put("descripcion", "Servidor REST API para el Laboratorio 17 (IF0009 - UCR)");
-        resp.put("h2Console", "http://localhost:8080/h2-console");
-        resp.put("frontendUrl", "http://localhost:4200");
 
         Map<String, String> endpoints = new LinkedHashMap<>();
         endpoints.put("login", "POST /api/auth/login");
+        endpoints.put("misCuentas", "GET /api/cuentas");
         endpoints.put("cuentasUsuario", "GET /api/cuentas/usuario/{usuarioId}");
         endpoints.put("cuentaDetalle", "GET /api/cuentas/{id}");
         endpoints.put("cuentaSaldo", "GET /api/cuentas/{id}/saldo");

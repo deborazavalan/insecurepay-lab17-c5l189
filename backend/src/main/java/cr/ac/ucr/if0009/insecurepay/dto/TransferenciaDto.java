@@ -1,13 +1,27 @@
 package cr.ac.ucr.if0009.insecurepay.dto;
 
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 public class TransferenciaDto {
-    // [VULNERABILIDAD INTENCIONADA: A01:2021 - IDOR / BOLA]
-    // Acepta cuentaOrigenId directamente del cliente sin verificar si pertenece al usuario autenticado
+
+    @NotNull
     private Long cuentaOrigenId;
+
+    @NotBlank
+    @Size(max = 30)
     private String numeroCuentaDestino;
+
+    @NotNull
+    @DecimalMin(value = "0.01")
+    @Digits(integer = 13, fraction = 2)
     private BigDecimal monto;
+
+    @Size(max = 250)
     private String conceptoHtml;
 
     public TransferenciaDto() {
@@ -52,4 +66,3 @@ public class TransferenciaDto {
         this.conceptoHtml = conceptoHtml;
     }
 }
-

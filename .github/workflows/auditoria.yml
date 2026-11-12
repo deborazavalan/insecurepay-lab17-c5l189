@@ -46,7 +46,7 @@ jobs:
       matrix:
         include:
           - version: antes
-            ref: v1-vulnerable
+            ref: version-vulnerable
           - version: despues
             ref: main
     env:

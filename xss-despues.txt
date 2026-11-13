@@ -1,0 +1,4 @@
+Version auditada: despues
+Comprobante abierto: transaccion #6
+Elementos <img src="x"> inyectados en el DOM: 0
+RESULTADO: No se ejecuto JavaScript; el concepto se renderizo como texto plano.
